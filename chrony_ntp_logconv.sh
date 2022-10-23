@@ -37,11 +37,13 @@ for f in os.listdir("/var/log/chrony"):
                 line = fd.readline()
                 continue
             s = line.split()
-            d = datetime.fromisoformat(s[0] + " " + s[1])
+            t = datetime.fromisoformat(s[0] + " " + s[1])
+            d = datetime.fromisoformat(s[0])
             mjs = (d.timestamp() + 3506716800)
             mjd = math.floor(mjs / 86400)
-            secs = mjs - (mjd * 86400)
+            secs = ((t.timestamp() - d.timestamp()))
             logsuf = d.strftime("%Y%m%d")
+
 
             if f != logsuf:
                 f = logsuf
@@ -88,6 +90,8 @@ for f in os.listdir("/var/log/chrony"):
             line = fd.readline()
 
 out.close()
+shutil.copyfile("/var/log/ntpstats/conv/peerstats." + logsuf, "/var/log/ntpstats/peerstats")
+shutil.copyfile("/var/log/ntpstats/conv/loopstats." + logsuf, "/var/log/ntpstats/loopstats")
 for f in os.listdir("/var/log/ntpstats/conv"):
     os.rename("/var/log/ntpstats/conv/" + f, "/var/log/ntpstats/" + f)
 shutil.rmtree("/var/log/ntpstats/conv")
