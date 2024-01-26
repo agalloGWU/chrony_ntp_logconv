@@ -5,14 +5,25 @@
 # See below and fill in an adapter from your local refid names for refclocks to NTPd style
 # IPs for refclocks.
 
+# agalloGWU modifications
+# change location of files because we're going to be running this on a
+# different machine than the one that generated the logs
+# directory structure:
+#   ./chrony-source = the files chronyd generates that are normally in /var/log/chrony
+#   ./ntpconv = converted files
+
+
+# adding reference clock Type 28 (Shared Memory driver) as 127.127.28.0
+# see https://www.eecis.udel.edu/%7Emills/ntp/html/refclock.html#list
+
 import shutil, os, math
 from datetime import datetime, timezone
 
 try:
-    shutil.rmtree("/var/log/ntpstats/conv")
+    shutil.rmtree("./ntpconv")
 except:
     pass
-os.mkdir("/var/log/ntpstats/conv")
+os.mkdir("./ntpconv")
 
 # Chrony can sometimes print times out of order, which on day boundaries can result
 # in us clearing logs completely, so we track which days we've covered and append
@@ -21,7 +32,7 @@ suffixes = {}
 suffixes["loopstats"] = set()
 suffixes["peerstats"] = set()
 out = None
-for f in os.listdir("/var/log/chrony"):
+for f in os.listdir("./chrony-source"):
     if f.startswith("tracking.log"):
         out_ty = "loopstats"
     elif f.startswith("statistics.log"):
@@ -29,7 +40,7 @@ for f in os.listdir("/var/log/chrony"):
     else:
         continue
 
-    with open("/var/log/chrony/" + f) as fd:
+    with open("./chrony-source/" + f) as fd:
         line = fd.readline()
         f = ""
         while line:
@@ -50,9 +61,9 @@ for f in os.listdir("/var/log/chrony"):
                 if out is not None:
                     out.close()
                 if f in suffixes[out_ty]:
-                    out = open("/var/log/ntpstats/conv/" + out_ty + "." + logsuf, "a")
+                    out = open("./ntpconv/" + out_ty + "." + logsuf, "a")
                 else:
-                    out = open("/var/log/ntpstats/conv/" + out_ty + "." + logsuf, "w")
+                    out = open("./ntpconv/" + out_ty + "." + logsuf, "w")
                     suffixes[out_ty].add(f)
 
             if out_ty == "loopstats":
@@ -83,6 +94,9 @@ for f in os.listdir("/var/log/chrony"):
                     src = "127.127.22.1"
                 elif src == "PPS2":
                     src = "127.127.22.2"
+                elif src == "PTP0":       # strictly speaking, this is the shared memory driver (SHM), but that's how we get PTP to sync with NTP
+                    src = "127.127.28.0"
+
 
                 # Bogus "status" and, sadly, missing "delay" (which is 0 here, its only in rawstats)
                 out.write("%d %d %s 9014 %.9f 0 %.9f %.9f\n" % (mjd, secs, src, -float(s[4]), float(s[5]), float(s[3])))
@@ -90,8 +104,12 @@ for f in os.listdir("/var/log/chrony"):
             line = fd.readline()
 
 out.close()
+
+# don't this we need this anymore
+"""
 shutil.copyfile("/var/log/ntpstats/conv/peerstats." + logsuf, "/var/log/ntpstats/peerstats")
 shutil.copyfile("/var/log/ntpstats/conv/loopstats." + logsuf, "/var/log/ntpstats/loopstats")
 for f in os.listdir("/var/log/ntpstats/conv"):
     os.rename("/var/log/ntpstats/conv/" + f, "/var/log/ntpstats/" + f)
 shutil.rmtree("/var/log/ntpstats/conv")
+"""
